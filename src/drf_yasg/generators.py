@@ -6,6 +6,7 @@ from collections import OrderedDict, defaultdict
 import rest_framework
 import uritemplate
 from coreapi.compat import urlparse
+from django.urls import get_script_prefix
 from packaging.version import Version
 from rest_framework import versioning
 from rest_framework.compat import URLPattern, URLResolver, get_original_route
@@ -248,7 +249,13 @@ class OpenAPISchemaGenerator(object):
         :rtype: openapi.Swagger
         """
         endpoints = self.get_endpoints(request)
-        components = self.reference_resolver_class(openapi.SCHEMA_DEFINITIONS, force_init=True)
+        # components = self.reference_resolver_class(openapi.SCHEMA_DEFINITIONS, force_init=True)
+        components = self.reference_resolver_class(
+            openapi.COMPONENT_SCHEMAS,
+            openapi.COMPONENT_RESPONSES,
+            openapi.COMPONENT_PARAMETERS,
+            force_init=True,
+        )
         self.consumes = get_consumes(api_settings.DEFAULT_PARSER_CLASSES)
         self.produces = get_produces(api_settings.DEFAULT_RENDERER_CLASSES)
         paths, prefix = self.get_paths(endpoints, components, request, public)
@@ -263,10 +270,15 @@ class OpenAPISchemaGenerator(object):
         if url is None and request is not None:
             url = request.build_absolute_uri()
 
+        servers = []
+        servers.append(openapi.Server(
+            url=openapi.Swagger.get_base_path(get_script_prefix(), prefix)
+        ))
+
         return openapi.Swagger(
-            info=self.info, paths=paths, consumes=self.consumes or None, produces=self.produces or None,
+            info=self.info, servers=servers, paths=paths,
             security_definitions=security_definitions, security=security_requirements,
-            _url=url, _prefix=prefix, _version=self.version, **dict(components)
+            _version=self.version, components=dict(components)
         )
 
     def create_view(self, callback, method, request=None):

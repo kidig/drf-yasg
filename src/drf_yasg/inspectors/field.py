@@ -131,7 +131,8 @@ class InlineSerializerInspector(SerializerInspector):
             if not ref_name or not use_references:
                 return make_schema_definition()
 
-            definitions = self.components.with_scope(openapi.SCHEMA_DEFINITIONS)
+            # definitions = self.components.with_scope(openapi.SCHEMA_DEFINITIONS)
+            definitions = self.components.with_scope(openapi.COMPONENT_SCHEMAS)
             actual_schema = definitions.setdefault(ref_name, make_schema_definition)
             actual_schema._remove_read_only()
 
@@ -843,7 +844,8 @@ else:
                 ref_name = get_serializer_ref_name(proxied)
                 assert ref_name is not None, "Can't create RecursiveField schema for inline " + str(type(proxied))
 
-                definitions = self.components.with_scope(openapi.SCHEMA_DEFINITIONS)
+                # definitions = self.components.with_scope(openapi.SCHEMA_DEFINITIONS)
+                definitions = self.components.with_scope(openapi.COMPONENT_SCHEMAS)
 
                 ref = openapi.SchemaRef(definitions, ref_name, ignore_unresolved=True)
                 if isinstance(field.proxied, serializers.ListSerializer):

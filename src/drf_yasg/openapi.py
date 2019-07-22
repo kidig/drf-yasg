@@ -56,6 +56,11 @@ IN_FORM = 'formData'  #:
 IN_HEADER = 'header'  #:
 
 SCHEMA_DEFINITIONS = 'definitions'  #:
+SCHEMA_COMPONENTS = 'components'  #:
+
+COMPONENT_SCHEMAS = 'schemas'
+COMPONENT_RESPONSES = 'responses'
+COMPONENT_PARAMETERS = 'parameters'
 
 
 def make_swagger_name(attribute_name):
@@ -234,8 +239,8 @@ class Info(SwaggerDict):
 
 
 class Swagger(SwaggerDict):
-    def __init__(self, info=None, _url=None, _prefix=None, _version=None, consumes=None, produces=None,
-                 security_definitions=None, security=None, paths=None, definitions=None, **extra):
+    def __init__(self, info=None, servers=None, _version=None,
+                 security_definitions=None, security=None, paths=None, components=None, **extra):
         """Root Swagger object.
 
         :param .Info info: info object
@@ -251,23 +256,26 @@ class Swagger(SwaggerDict):
         :param dict[str,Schema] definitions: named models
         """
         super(Swagger, self).__init__(**extra)
-        self.swagger = '2.0'
+        self.openapi = '3.0.0'
         self.info = info
         self.info.version = _version or info._default_version
 
-        if _url:
-            url = urlparse.urlparse(_url)
-            assert url.netloc and url.scheme, "if given, url must have both schema and netloc"
-            self.host = url.netloc
-            self.schemes = [url.scheme]
+        # if _url:
+        #     url = urlparse.urlparse(_url)
+            # assert url.netloc and url.scheme, "if given, url must have both schema and netloc"
+            # self.host = url.netloc
+            # self.schemes = [url.scheme]
 
-        self.base_path = self.get_base_path(get_script_prefix(), _prefix)
-        self.consumes = consumes
-        self.produces = produces
+        # base_path = self.get_base_path(get_script_prefix(), _prefix)
+        self.servers = servers
+
+        # self.consumes = consumes
+        # self.produces = produces
         self.security_definitions = filter_none(security_definitions)
         self.security = filter_none(security)
         self.paths = paths
-        self.definitions = filter_none(definitions)
+        # self.definitions = filter_none(definitions)
+        self.components = filter_none(components)
         self._insert_extras__()
 
     @classmethod
@@ -430,8 +438,8 @@ class Parameter(SwaggerDict):
         self.in_ = in_
         self.description = description
         self.required = required
-        self.schema = schema
-        self.type = type
+        self.schema = schema or Schema(type=type)
+        # self.type = type
         self.format = format
         self.enum = enum
         self.pattern = pattern
@@ -522,7 +530,7 @@ class _Ref(SwaggerDict):
         """
         super(_Ref, self).__init__()
         assert not type(self) == _Ref, "do not instantiate _Ref directly"
-        ref_name = "#/{scope}/{name}".format(scope=scope, name=name)
+        ref_name = "#/components/{scope}/{name}".format(scope=scope, name=name)
         if not ignore_unresolved:
             obj = resolver.get(name, scope)
             assert isinstance(obj, expected_type), ref_name + " is a {actual}, not a {expected}" \
@@ -555,8 +563,9 @@ class SchemaRef(_Ref):
         :param str schema_name: schema name
         :param bool ignore_unresolved: do not throw if the referenced object does not exist
         """
-        assert SCHEMA_DEFINITIONS in resolver.scopes
-        super(SchemaRef, self).__init__(resolver, schema_name, SCHEMA_DEFINITIONS, Schema, ignore_unresolved)
+        # assert SCHEMA_DEFINITIONS in resolver.scopes
+        assert COMPONENT_SCHEMAS in resolver.scopes
+        super(SchemaRef, self).__init__(resolver, schema_name, COMPONENT_SCHEMAS, Schema, ignore_unresolved)
 
 
 Schema.OR_REF = (Schema, SchemaRef)
@@ -602,8 +611,14 @@ class Response(SwaggerDict):
         """
         super(Response, self).__init__(**extra)
         self.description = description
-        self.schema = schema
-        self.examples = examples
+
+        # self.schema = schema
+        # self.examples = examples
+        self.content = {
+            'application/json': {
+                'schema': schema
+            }
+        }
         self._insert_extras__()
         if schema and isinstance(schema, Schema):
             schema._remove_read_only()
@@ -755,3 +770,25 @@ class ReferenceResolver(object):
 
     def __str__(self):
         return str(dict(self))
+
+
+class Server(SwaggerDict):
+    def __init__(self, url, description=None, variables=None, **extra):
+        """Server object
+        """
+        super(Server, self).__init__(**extra)
+        self.url = url
+        self.description = description
+        self.variables = variables
+        self._insert_extras__()
+
+
+class Components(SwaggerDict):
+    def __init__(self, schemas=None, responses=None, parameters=None, **extra):
+        """Components object
+        """
+        super(Components, self).__init__(**extra)
+        self.schemas = schemas
+        self.responses = responses
+        self.parameters = parameters
+        self._insert_extras__()
